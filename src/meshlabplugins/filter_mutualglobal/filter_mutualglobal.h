@@ -60,14 +60,14 @@ public:
 	FilterClass getClass(QAction *a);
 	QString filterScriptFunctionName(FilterIDType filterID);
 	bool preAlignment(MeshDocument &md, const RichParameterList& par, vcg::CallBackPos *cb);
-	std::vector<SubGraph> buildGraph(MeshDocument &md, bool globalign=true);
-	std::vector<AlignPair> CalcPairs(MeshDocument &md, bool globalign=true);
+	std::vector<SubGraph> buildGraph(MeshDocument &md, bool globalign=true, int resolution=800);
+	std::vector<AlignPair> CalcPairs(MeshDocument &md, bool globalign=true, int resolution=800);
 	std::vector<SubGraph> CreateGraphs(MeshDocument &md, std::vector<AlignPair> arcs);
-	bool AlignGlobal(MeshDocument &md, std::vector<SubGraph> graphs);
+	bool AlignGlobal(MeshDocument &md, std::vector<SubGraph> graphs, int resolution=800);
 	int getTheRightNode(SubGraph graph);
-	bool AlignNode(MeshDocument &md, Node node);
+	bool AlignNode(MeshDocument &md, Node node, int resolution=800);
 	bool allActive(SubGraph graph);
-	bool UpdateGraph(MeshDocument &md, SubGraph graph, int n);
+	bool UpdateGraph(MeshDocument &md, SubGraph graph, int n, int resolution=800);
 	float calcShotsDifference(MeshDocument &md, std::vector<vcg::Shotf> oldShots, std::vector<vcg::Point3f> points);
 	FILTER_ARITY filterArity(QAction *) const { return SINGLE_MESH; }
 

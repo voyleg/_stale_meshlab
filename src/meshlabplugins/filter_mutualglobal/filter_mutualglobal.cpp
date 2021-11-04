@@ -133,6 +133,7 @@ void FilterMutualGlobal::initParameterSet(QAction *action,MeshDocument & md, Ric
 				0.1,
 				"Threshold for refinement convergence (in pixels)",
 				"The threshold (average quadratic variation in the projection on image plane of some samples of the mesh before and after each step of refinement) that stops the refinement"));
+			parlst.addParam(RichInt("Resolution",800,"Resolution","Resize images to this resolution"));
 
 			parlst.addParam(RichBool("Pre-alignment",false,"Pre-alignment step","Pre-alignment step"));
 			parlst.addParam(RichBool("Estimate Focal",false,"Estimate focal length","Estimate focal length"));
@@ -204,11 +205,11 @@ bool FilterMutualGlobal::applyFilter(QAction *action, MeshDocument &md, const Ri
 			if (par.getInt("Max number of refinement steps")!=0)
 			{
 
-				Graphs=buildGraph(md);
+				Graphs=buildGraph(md, par.getInt("Resolution"));
 				Log("BuildGraph completed");
 				for (int i=0; i<par.getInt("Max number of refinement steps"); i++)
 				{
-					AlignGlobal(md, Graphs);
+					AlignGlobal(md, Graphs, par.getInt("Resolution"));
 					float diff=calcShotsDifference(md,oldShots,myVec);
 					Log("AlignGlobal %d of %d completed, average improvement %f pixels",i+1,par.getInt("Max number of refinement steps"),diff);
 					if (diff<thresDiff)
@@ -423,7 +424,7 @@ bool FilterMutualGlobal::preAlignment(MeshDocument &md, const RichParameterList 
 				alignset.image=&md.rasterList[r]->currentPlane->image;
 				alignset.shot=md.rasterList[r]->shot;
 
-				alignset.resize(800);
+				alignset.resize(par.getInt("Resolution"));
 
 				alignset.shot.Intrinsics.ViewportPx[0]=int((double)alignset.shot.Intrinsics.ViewportPx[1]*alignset.image->width()/alignset.image->height());
 				alignset.shot.Intrinsics.CenterPx[0]=(int)(alignset.shot.Intrinsics.ViewportPx[0]/2);
@@ -456,18 +457,18 @@ bool FilterMutualGlobal::preAlignment(MeshDocument &md, const RichParameterList 
 	return true;
 }
 
-std::vector<SubGraph> FilterMutualGlobal::buildGraph(MeshDocument &md, bool globalign)
+std::vector<SubGraph> FilterMutualGlobal::buildGraph(MeshDocument &md, bool globalign, int resolution)
 {
 
 	std::vector<AlignPair> allArcs;
 
-	allArcs=CalcPairs(md, globalign);
+	allArcs=CalcPairs(md, globalign, resolution);
 	Log("Calcpairs completed");
 	return CreateGraphs(md, allArcs);
 
 }
 
-std::vector<AlignPair> FilterMutualGlobal::CalcPairs(MeshDocument &md, bool globalign)
+std::vector<AlignPair> FilterMutualGlobal::CalcPairs(MeshDocument &md, bool globalign, int resolution)
 {
 	Solver solver;
 	MutualInfo mutual;
@@ -531,7 +532,7 @@ std::vector<AlignPair> FilterMutualGlobal::CalcPairs(MeshDocument &md, bool glob
 			alignset.shot=md.rasterList[r]->shot;
 
 			//this->initGL();
-			alignset.resize(800);
+			alignset.resize(resolution);
 
 			//alignset.shot=par.getShotf("Shot");
 
@@ -796,7 +797,7 @@ std::vector<SubGraph> FilterMutualGlobal::CreateGraphs(MeshDocument &md, std::ve
 	return Gr;
 }
 
-bool FilterMutualGlobal::AlignGlobal(MeshDocument &md, std::vector<SubGraph> graphs)
+bool FilterMutualGlobal::AlignGlobal(MeshDocument &md, std::vector<SubGraph> graphs, int resolution)
 {
 	for (int j=0; j<1; j++)
 	{
@@ -809,9 +810,9 @@ bool FilterMutualGlobal::AlignGlobal(MeshDocument &md, std::vector<SubGraph> gra
 			int curr= getTheRightNode(graphs[i]);
 			graphs[i].nodes[curr].active=true;
 			//Log(0, "Round %d of %d: alignset the node",n+1,graphs[i].nodes.size());
-			AlignNode(md, graphs[i].nodes[curr]);
+			AlignNode(md, graphs[i].nodes[curr], resolution);
 			//Log(0, "Round %d of %d: update the graph",n+1,graphs[i].nodes.size());
-			UpdateGraph(md, graphs[i], curr);
+			UpdateGraph(md, graphs[i], curr, resolution);
 			Log("Image %d completed",curr);
 			n++;
 
@@ -871,7 +872,7 @@ bool FilterMutualGlobal::allActive(SubGraph graph)
 
 }
 
-bool FilterMutualGlobal::AlignNode(MeshDocument &md, Node node)
+bool FilterMutualGlobal::AlignNode(MeshDocument &md, Node node, int resolution)
 {
 	Solver solver;
 	MutualInfo mutual;
@@ -918,7 +919,7 @@ bool FilterMutualGlobal::AlignNode(MeshDocument &md, Node node)
 
 	//this->glContext->makeCurrent();
 	/*this->initGL();*/
-	alignset.resize(800);
+	alignset.resize(resolution);
 
 	vcg::Point3f *vertices = new vcg::Point3f[alignset.mesh->vn];
 	vcg::Point3f *normals = new vcg::Point3f[alignset.mesh->vn];
@@ -997,7 +998,7 @@ bool FilterMutualGlobal::AlignNode(MeshDocument &md, Node node)
 	return true;
 }
 
-bool FilterMutualGlobal::UpdateGraph(MeshDocument &md, SubGraph graph, int n)
+bool FilterMutualGlobal::UpdateGraph(MeshDocument &md, SubGraph graph, int n, int resolution)
 {
 	Solver solver;
 	MutualInfo mutual;
@@ -1057,7 +1058,7 @@ bool FilterMutualGlobal::UpdateGraph(MeshDocument &md, SubGraph graph, int n)
 				alignset.shot=md.rasterList[imageId]->shot;
 
 				//this->initGL();
-				alignset.resize(800);
+				alignset.resize(resolution);
 
 
 
