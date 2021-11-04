@@ -126,16 +126,16 @@ void FilterMutualGlobal::initParameterSet(QAction *action,MeshDocument & md, Ric
 			//parlst.addParam(RichShotf  ("Shot", vcg::Shotf(),"Smoothing steps", "The number of times that the whole algorithm (normal smoothing + vertex fitting) is iterated."));
 
 			parlst.addParam(RichInt ("Max number of refinement steps",
-				5,
+				7,
 				"Maximum number of minimizations step",
 				"Maximum number of minimizations step on the global graph"));
 			parlst.addParam(RichFloat ("Threshold for refinement convergence",
-				1.2,
+				0.1,
 				"Threshold for refinement convergence (in pixels)",
 				"The threshold (average quadratic variation in the projection on image plane of some samples of the mesh before and after each step of refinement) that stops the refinement"));
 
 			parlst.addParam(RichBool("Pre-alignment",false,"Pre-alignment step","Pre-alignment step"));
-			parlst.addParam(RichBool("Estimate Focal",true,"Estimate focal length","Estimate focal length"));
+			parlst.addParam(RichBool("Estimate Focal",false,"Estimate focal length","Estimate focal length"));
 			parlst.addParam(RichBool("Fine",true,"Fine Alignment","Fine alignment"));
 
 		  /*parlst.addParam(RichBool ("UpdateNormals",
@@ -205,12 +205,12 @@ bool FilterMutualGlobal::applyFilter(QAction *action, MeshDocument &md, const Ri
 			{
 
 				Graphs=buildGraph(md);
-				Log(0, "BuildGraph completed");
+				Log("BuildGraph completed");
 				for (int i=0; i<par.getInt("Max number of refinement steps"); i++)
 				{
 					AlignGlobal(md, Graphs);
 					float diff=calcShotsDifference(md,oldShots,myVec);
-					Log(0, "AlignGlobal %d of %d completed, average improvement %f pixels",i+1,par.getInt("Max number of refinement steps"),diff);
+					Log("AlignGlobal %d of %d completed, average improvement %f pixels",i+1,par.getInt("Max number of refinement steps"),diff);
 					if (diff<thresDiff)
 						break;
 					oldShots.clear();
@@ -222,13 +222,13 @@ bool FilterMutualGlobal::applyFilter(QAction *action, MeshDocument &md, const Ri
 			}
 
 			this->glContext->doneCurrent();
-			Log(0, "Done!");
+			Log("Done!");
 			break;
 
 		default : assert(0);
 	}
 
-	Log(0,"Filter completed in %i sec",(int)((float)filterTime.elapsed()/1000.0f));
+	Log("Filter completed in %i sec",(int)((float)filterTime.elapsed()/1000.0f));
 
 		return true;
 
@@ -445,11 +445,11 @@ bool FilterMutualGlobal::preAlignment(MeshDocument &md, const RichParameterList 
 				md.rasterList[r]->shot.Intrinsics.CenterPx[0]=(int)((float)md.rasterList[r]->shot.Intrinsics.ViewportPx[0]/2.0);
 				md.rasterList[r]->shot.Intrinsics.CenterPx[1]=(int)((float)md.rasterList[r]->shot.Intrinsics.ViewportPx[1]/2.0);
 
-				Log(0, "Image %d completed",r);
+				Log("Image %d completed",r);
 
 		}
 		else
-			Log(0, "Image %d skipped",r);
+			Log("Image %d skipped",r);
 		}
 	}
 
@@ -462,7 +462,7 @@ std::vector<SubGraph> FilterMutualGlobal::buildGraph(MeshDocument &md, bool glob
 	std::vector<AlignPair> allArcs;
 
 	allArcs=CalcPairs(md, globalign);
-	Log(0, "Calcpairs completed");
+	Log("Calcpairs completed");
 	return CreateGraphs(md, allArcs);
 
 }
@@ -476,6 +476,7 @@ std::vector<AlignPair> FilterMutualGlobal::CalcPairs(MeshDocument &md, bool glob
 
 	alignset.mesh=&md.mm()->cm;
 
+	solver.optimize_focal=false;  // FIXME read this from par
 	/*solver.optimize_focal=true;
 	solver.fine_alignment=true;*/
 
@@ -585,12 +586,12 @@ std::vector<AlignPair> FilterMutualGlobal::CalcPairs(MeshDocument &md, bool glob
 				}
 			}
 
-			Log(0, "Image %d completed",r);
+			Log("Image %d completed",r);
 			if (!globalign)
 			{
 				for (int i=0; i<weightList.size(); i++)
 				{
-					Log(0, "Area %3.2f, Mutual %3.2f",weightList[i].area,weightList[i].mutual);
+					Log("Area %3.2f, Mutual %3.2f",weightList[i].area,weightList[i].mutual);
 					list.push_back(weightList[i]);
 
 				}
@@ -649,7 +650,7 @@ std::vector<AlignPair> FilterMutualGlobal::CalcPairs(MeshDocument &md, bool glob
 						pair.projId=p;
 						pair.weight=weightList[i].weight;
 						list.push_back(pair);
-						Log(0, "Area %3.2f, Mutual %3.2f",pair.area,pair.mutual);
+						Log("Area %3.2f, Mutual %3.2f",pair.area,pair.mutual);
 					}
 			}
 
@@ -659,7 +660,7 @@ std::vector<AlignPair> FilterMutualGlobal::CalcPairs(MeshDocument &md, bool glob
 
 
 
-	Log(0, "Tot arcs %d, Valid arcs %d",(md.rasterList.size())*(md.rasterList.size()-1),list.size());
+	Log("Tot arcs %d, Valid arcs %d",(md.rasterList.size())*(md.rasterList.size()-1),list.size());
 
 
 		//emit md.rasterSetChanged();
@@ -753,7 +754,7 @@ std::vector<SubGraph> FilterMutualGlobal::CreateGraphs(MeshDocument &md, std::ve
 		graph.id=i;
 		for (int j=0; j<numNodes; j++)
 		{
-			Log(0, "Node %d of %d",j,numNodes);
+			Log("Node %d of %d",j,numNodes);
 			if (allNodes.nodes[j].grNum==i)
 			{
 				Node n;
@@ -775,7 +776,7 @@ std::vector<SubGraph> FilterMutualGlobal::CreateGraphs(MeshDocument &md, std::ve
 				}
 				std::sort(n.arcs.begin(), n.arcs.end(), ordering());
 				graph.nodes.push_back(n);
-				Log(0, "Node %d of %d: avMut %3.2f, arch %d",j,numNodes, n.avMut, n.arcs.size());
+				Log("Node %d of %d: avMut %3.2f, arch %d",j,numNodes, n.avMut, n.arcs.size());
 			}
 			else
 				{
@@ -784,13 +785,13 @@ std::vector<SubGraph> FilterMutualGlobal::CreateGraphs(MeshDocument &md, std::ve
 				n.id=j;
 				n.avMut=0.0;
 				graph.nodes.push_back(n);
-				Log(0, "Node %d of %d: not used",j,numNodes);
+				Log("Node %d of %d: not used",j,numNodes);
 			}
 		}
 		Gr.push_back(graph);
 	}
 	Log(0, "Tuttok5");
-	Log(0, "Tot nodes %d, SubGraphs %d",numNodes,totGr);
+	Log("Tot nodes %d, SubGraphs %d",numNodes,totGr);
 
 	return Gr;
 }
@@ -811,7 +812,7 @@ bool FilterMutualGlobal::AlignGlobal(MeshDocument &md, std::vector<SubGraph> gra
 			AlignNode(md, graphs[i].nodes[curr]);
 			//Log(0, "Round %d of %d: update the graph",n+1,graphs[i].nodes.size());
 			UpdateGraph(md, graphs[i], curr);
-			//Log(0, "Image %d completed",curr);
+			Log("Image %d completed",curr);
 			n++;
 
 		}
@@ -911,6 +912,7 @@ bool FilterMutualGlobal::AlignNode(MeshDocument &md, Node node)
 
 	alignset.ProjectedMultiImageChanged();
 
+	solver.optimize_focal=false;  // FIXME read this from par
 	/*solver.optimize_focal=true;
 	solver.fine_alignment=true;*/
 
